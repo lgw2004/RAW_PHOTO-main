@@ -1,0 +1,103 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-dev_sh_ai_db}
+      POSTGRES_USER: ${POSTGRES_USER:-dev_sh_ai}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["sh", "-c", "redis-server --appendonly yes --requirepass '$$REDIS_PASSWORD'"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a '$$REDIS_PASSWORD' ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  schema-init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: raw-photo:enterprise
+    command: ["uv", "run", "python", "backend/scripts/init_enterprise_schema.py"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment: &app-environment
+      LGWRAW_AUTH_KEY: ${LGWRAW_AUTH_KEY:?LGWRAW_AUTH_KEY is required}
+      LGWRAW_STRICT_SECRET_SOURCES: "true"
+      STORAGE_BACKEND: postgres
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-dev_sh_ai}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dev_sh_ai_db}
+      IMAGE_TASK_DB_POOL_SIZE: ${IMAGE_TASK_DB_POOL_SIZE:-10}
+      IMAGE_TASK_DB_MAX_OVERFLOW: ${IMAGE_TASK_DB_MAX_OVERFLOW:-20}
+      IMAGE_TASK_QUEUE_ENABLED: "true"
+      IMAGE_TASK_EXECUTOR: celery
+      IMAGE_TASK_REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      IMAGE_TASK_TOTAL_CONCURRENCY: ${IMAGE_TASK_TOTAL_CONCURRENCY:-5}
+      IMAGE_TASK_WORKER_CONCURRENCY: ${IMAGE_TASK_WORKER_CONCURRENCY:-5}
+      IMAGE_TASK_OWNER_CONCURRENCY: ${IMAGE_TASK_OWNER_CONCURRENCY:-2}
+      IMAGE_TASK_OWNER_PENDING_LIMIT: ${IMAGE_TASK_OWNER_PENDING_LIMIT:-30}
+      LGWRAW_OPENAI_RELAY_ENABLED: ${LGWRAW_OPENAI_RELAY_ENABLED:-false}
+      LGWRAW_OPENAI_RELAY_BASE_URL: ${LGWRAW_OPENAI_RELAY_BASE_URL:-}
+      LGWRAW_OPENAI_RELAY_API_KEY: ${LGWRAW_OPENAI_RELAY_API_KEY:-}
+      LGWRAW_QINIU_ACCESS_KEY: ${LGWRAW_QINIU_ACCESS_KEY:?LGWRAW_QINIU_ACCESS_KEY is required}
+      LGWRAW_QINIU_SECRET_KEY: ${LGWRAW_QINIU_SECRET_KEY:?LGWRAW_QINIU_SECRET_KEY is required}
+      LGWRAW_QINIU_BUCKET: ${LGWRAW_QINIU_BUCKET:?LGWRAW_QINIU_BUCKET is required}
+      LGWRAW_QINIU_DOMAIN: ${LGWRAW_QINIU_DOMAIN:?LGWRAW_QINIU_DOMAIN is required}
+      LGWRAW_QINIU_PREFIX: ${LGWRAW_QINIU_PREFIX:-lgwraw/reference}
+      LGWRAW_QINIU_TASK_PREFIX: ${LGWRAW_QINIU_TASK_PREFIX:-lgwraw/task-assets}
+      LGWRAW_QINIU_UPLOAD_URL: ${LGWRAW_QINIU_UPLOAD_URL:-https://upload-z0.qiniup.com}
+      LGWRAW_QINIU_REGION: ${LGWRAW_QINIU_REGION:-z0}
+      LGWRAW_QINIU_PRIVATE: "false"
+      LGWRAW_IMAGE_STORAGE_ENABLED: "true"
+      LGWRAW_IMAGE_STORAGE_MODE: qiniu
+      LGWRAW_IMAGE_STORAGE_PROVIDER: qiniu
+
+  app:
+    image: raw-photo:enterprise
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      schema-init:
+        condition: service_completed_successfully
+    ports:
+      - "8000:80"
+    environment: *app-environment
+    volumes:
+      - ./data:/app/data
+
+  worker:
+    image: raw-photo:enterprise
+    restart: unless-stopped
+    command: ["uv", "run", "python", "worker.py"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      schema-init:
+        condition: service_completed_successfully
+    environment: *app-environment
+    volumes:
+      - ./data:/app/data
+
+volumes:
+  postgres-data:
+  redis-data:

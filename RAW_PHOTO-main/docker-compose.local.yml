@@ -1,0 +1,53 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: lgwraw-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - ./data/redis:/data
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lgwraw:local
+    container_name: lgwraw-local
+    restart: unless-stopped
+    depends_on:
+      - redis
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8000:80"
+    volumes:
+      - ./data:/app/data
+      - ./config.json:/app/config.json
+    environment:
+      STORAGE_BACKEND: postgres
+      DATABASE_URL: ${DOCKER_DATABASE_URL:?DOCKER_DATABASE_URL is required for Docker local development}
+      IMAGE_TASK_QUEUE_ENABLED: "true"
+      IMAGE_TASK_REDIS_URL: redis://redis:6379/0
+      IMAGE_TASK_MAX_RETRIES: "2"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lgwraw:local
+    container_name: lgwraw-worker
+    restart: unless-stopped
+    command: ["uv", "run", "python", "worker.py"]
+    depends_on:
+      - redis
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data:/app/data
+      - ./config.json:/app/config.json
+    environment:
+      STORAGE_BACKEND: postgres
+      DATABASE_URL: ${DOCKER_DATABASE_URL:?DOCKER_DATABASE_URL is required for Docker local development}
+      IMAGE_TASK_QUEUE_ENABLED: "true"
+      IMAGE_TASK_REDIS_URL: redis://redis:6379/0
+      IMAGE_TASK_MAX_RETRIES: "2"

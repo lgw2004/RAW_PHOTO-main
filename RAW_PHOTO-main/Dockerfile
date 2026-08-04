@@ -10,7 +10,6 @@ COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 
 COPY VERSION /app/VERSION
-COPY CHANGELOG.md /app/CHANGELOG.md
 COPY frontend ./
 RUN VITE_APP_VERSION="$(cat /app/VERSION)" npm run build
 

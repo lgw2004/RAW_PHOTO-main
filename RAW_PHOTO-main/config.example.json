@@ -85,7 +85,7 @@
     "executor": "redis",
     "redis_url": "redis://127.0.0.1:6379/0",
     "queue_name": "ai_image_tasks",
-    "database_url": "postgresql+asyncpg://dev_sh_ai:replace-with-a-strong-password@127.0.0.1:5432/dev_sh_ai_db",
+    "database_url": "",
     "max_retries": 2,
     "worker_poll_timeout_secs": 5,
     "stale_running_timeout_secs": 1800,

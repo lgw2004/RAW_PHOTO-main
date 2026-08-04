@@ -38,7 +38,9 @@ services:
       postgres:
         condition: service_healthy
     environment: &app-environment
+      LGWRAW_ENVIRONMENT: ${LGWRAW_ENVIRONMENT:-production}
       LGWRAW_AUTH_KEY: ${LGWRAW_AUTH_KEY:?LGWRAW_AUTH_KEY is required}
+      LGWRAW_BASE_URL: ${LGWRAW_BASE_URL:?LGWRAW_BASE_URL is required}
       LGWRAW_STRICT_SECRET_SOURCES: "true"
       STORAGE_BACKEND: postgres
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-dev_sh_ai}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-dev_sh_ai_db}
@@ -47,10 +49,13 @@ services:
       IMAGE_TASK_QUEUE_ENABLED: "true"
       IMAGE_TASK_EXECUTOR: celery
       IMAGE_TASK_REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      IMAGE_TASK_QUEUE_NAME: ${IMAGE_TASK_QUEUE_NAME:-raw_photo_production}
+      IMAGE_TASK_MAX_RETRIES: ${IMAGE_TASK_MAX_RETRIES:-2}
       IMAGE_TASK_TOTAL_CONCURRENCY: ${IMAGE_TASK_TOTAL_CONCURRENCY:-5}
       IMAGE_TASK_WORKER_CONCURRENCY: ${IMAGE_TASK_WORKER_CONCURRENCY:-5}
       IMAGE_TASK_OWNER_CONCURRENCY: ${IMAGE_TASK_OWNER_CONCURRENCY:-2}
       IMAGE_TASK_OWNER_PENDING_LIMIT: ${IMAGE_TASK_OWNER_PENDING_LIMIT:-30}
+      IMAGE_TASK_SLOT_LEASE_SECS: ${IMAGE_TASK_SLOT_LEASE_SECS:-7200}
       LGWRAW_OPENAI_RELAY_ENABLED: ${LGWRAW_OPENAI_RELAY_ENABLED:-false}
       LGWRAW_OPENAI_RELAY_BASE_URL: ${LGWRAW_OPENAI_RELAY_BASE_URL:-}
       LGWRAW_OPENAI_RELAY_API_KEY: ${LGWRAW_OPENAI_RELAY_API_KEY:-}
@@ -66,6 +71,7 @@ services:
       MINIO_SECURE: ${MINIO_SECURE:-true}
       MINIO_REGION: ${MINIO_REGION:-us-east-1}
       MINIO_ROOT_PATH: ${MINIO_ROOT_PATH:-lgwraw/images}
+      MINIO_REFERENCE_ROOT_PATH: ${MINIO_REFERENCE_ROOT_PATH:-lgwraw/reference}
 
   app:
     image: raw-photo:enterprise
@@ -78,7 +84,7 @@ services:
       schema-init:
         condition: service_completed_successfully
     ports:
-      - "8000:80"
+      - "127.0.0.1:8000:80"
     environment: *app-environment
     volumes:
       - ./data:/app/data

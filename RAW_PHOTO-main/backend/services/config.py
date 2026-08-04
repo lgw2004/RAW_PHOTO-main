@@ -45,30 +45,26 @@ DEFAULT_IMAGE_STORAGE = {
     "minio_endpoint": "",
     "minio_access_key": "",
     "minio_secret_key": "",
+    "minio_session_token": "",
     "minio_bucket": "",
     "minio_region": "us-east-1",
     "minio_secure": True,
     "minio_root_path": "lgwraw/images",
-    "qiniu_access_key": "",
-    "qiniu_secret_key": "",
-    "qiniu_bucket": "",
-    "qiniu_domain": "",
-    "qiniu_upload_url": "https://upload-z0.qiniup.com",
-    "qiniu_prefix": "lgwraw/task-assets",
-    "qiniu_region": "z0",
-    "qiniu_private": False,
     "public_base_url": "",
 }
 
 DEFAULT_IMAGE_REFERENCE_UPLOAD = {
     "enabled": False,
-    "provider": "qiniu",
-    "qiniu_access_key": "",
-    "qiniu_secret_key": "",
-    "qiniu_bucket": "",
-    "qiniu_domain": "",
-    "qiniu_upload_url": "https://upload-z0.qiniup.com",
-    "qiniu_prefix": "lgwraw/reference",
+    "provider": "minio",
+    "minio_endpoint": "",
+    "minio_access_key": "",
+    "minio_secret_key": "",
+    "minio_session_token": "",
+    "minio_bucket": "",
+    "minio_region": "us-east-1",
+    "minio_secure": True,
+    "minio_root_path": "lgwraw/reference",
+    "public_base_url": "",
     "timeout_sec": 20,
     "persistent_cache_enabled": True,
 }
@@ -194,11 +190,13 @@ def _strip_environment_managed_secrets(data: dict[str, object]) -> dict[str, obj
         (("LGWRAW_BACKUP_ACCESS_KEY_ID",), ("backup", "access_key_id"), ""),
         (("LGWRAW_BACKUP_SECRET_ACCESS_KEY",), ("backup", "secret_access_key"), ""),
         (("LGWRAW_BACKUP_PASSPHRASE",), ("backup", "passphrase"), ""),
-        (("LGWRAW_QINIU_ACCESS_KEY", "QINIU_ACCESS_KEY"), ("image_reference_upload", "qiniu_access_key"), ""),
-        (("LGWRAW_QINIU_SECRET_KEY", "QINIU_SECRET_KEY"), ("image_reference_upload", "qiniu_secret_key"), ""),
         (("LGWRAW_WEBDAV_PASSWORD", "WEBDAV_PASSWORD"), ("image_storage", "webdav_password"), ""),
         (("LGWRAW_MINIO_ACCESS_KEY", "MINIO_ACCESS_KEY"), ("image_storage", "minio_access_key"), ""),
         (("LGWRAW_MINIO_SECRET_KEY", "MINIO_SECRET_KEY"), ("image_storage", "minio_secret_key"), ""),
+        (("LGWRAW_MINIO_SESSION_TOKEN", "MINIO_SESSION_TOKEN"), ("image_storage", "minio_session_token"), ""),
+        (("LGWRAW_MINIO_ACCESS_KEY", "MINIO_ACCESS_KEY"), ("image_reference_upload", "minio_access_key"), ""),
+        (("LGWRAW_MINIO_SECRET_KEY", "MINIO_SECRET_KEY"), ("image_reference_upload", "minio_secret_key"), ""),
+        (("LGWRAW_MINIO_SESSION_TOKEN", "MINIO_SESSION_TOKEN"), ("image_reference_upload", "minio_session_token"), ""),
         (("LGWRAW_OPENAI_RELAY_API_KEY",), ("openai_relay", "api_key"), ""),
         (("LGWRAW_OPENAI_RELAY_API_KEYS",), ("openai_relay", "api_keys"), []),
         (("LGWRAW_CF_COOKIES",), ("proxy_runtime", "clearance", "cf_cookies"), ""),
@@ -278,8 +276,8 @@ def _normalize_image_storage_settings(value: object) -> dict[str, object]:
         or ""
     ).strip().lower()
     if mode == "remote":
-        mode = provider if provider in {"webdav", "minio", "qiniu"} else "minio"
-    if mode not in {"local", "webdav", "minio", "qiniu", "both"}:
+        mode = provider if provider in {"webdav", "minio"} else "minio"
+    if mode not in {"local", "webdav", "minio", "both"}:
         mode = "local"
     enabled = _normalize_bool(
         enabled_env if enabled_env is not None else source.get("enabled"),
@@ -301,20 +299,16 @@ def _normalize_image_storage_settings(value: object) -> dict[str, object]:
             provider = "minio"
         elif mode == "webdav":
             provider = "webdav"
-        elif mode == "qiniu":
-            provider = "qiniu"
         elif mode == "both" and has_minio_config:
             provider = "minio"
         else:
             provider = str(DEFAULT_IMAGE_STORAGE["provider"])
-    if provider not in {"webdav", "minio", "qiniu"}:
+    if provider not in {"webdav", "minio"}:
         provider = str(DEFAULT_IMAGE_STORAGE["provider"])
     if mode == "webdav":
         provider = "webdav"
     elif mode == "minio":
         provider = "minio"
-    elif mode == "qiniu":
-        provider = "qiniu"
     root_path = str(source.get("webdav_root_path") or DEFAULT_IMAGE_STORAGE["webdav_root_path"]).strip().strip("/")
     minio_root_path = str(
         os.getenv("LGWRAW_MINIO_ROOT_PATH")
@@ -323,7 +317,6 @@ def _normalize_image_storage_settings(value: object) -> dict[str, object]:
         or DEFAULT_IMAGE_STORAGE["minio_root_path"]
     ).strip().strip("/")
     minio_secure_env = os.getenv("LGWRAW_MINIO_SECURE") or os.getenv("MINIO_SECURE")
-    qiniu_private_env = os.getenv("LGWRAW_QINIU_PRIVATE") or os.getenv("QINIU_PRIVATE")
     public_base_url = str(
         os.getenv("LGWRAW_IMAGE_STORAGE_PUBLIC_BASE_URL")
         or os.getenv("IMAGE_PUBLIC_BASE_URL")
@@ -373,6 +366,12 @@ def _normalize_image_storage_settings(value: object) -> dict[str, object]:
             or source.get("minio_secret_key")
             or ""
         ).strip(),
+        "minio_session_token": str(
+            os.getenv("LGWRAW_MINIO_SESSION_TOKEN")
+            or os.getenv("MINIO_SESSION_TOKEN")
+            or source.get("minio_session_token")
+            or ""
+        ).strip(),
         "minio_bucket": str(
             os.getenv("LGWRAW_MINIO_BUCKET")
             or os.getenv("MINIO_BUCKET")
@@ -390,88 +389,83 @@ def _normalize_image_storage_settings(value: object) -> dict[str, object]:
             bool(DEFAULT_IMAGE_STORAGE["minio_secure"]),
         ),
         "minio_root_path": minio_root_path or str(DEFAULT_IMAGE_STORAGE["minio_root_path"]),
-        "qiniu_access_key": str(
-            os.getenv("LGWRAW_QINIU_ACCESS_KEY")
-            or os.getenv("QINIU_ACCESS_KEY")
-            or source.get("qiniu_access_key")
-            or ""
-        ).strip(),
-        "qiniu_secret_key": str(
-            os.getenv("LGWRAW_QINIU_SECRET_KEY")
-            or os.getenv("QINIU_SECRET_KEY")
-            or source.get("qiniu_secret_key")
-            or ""
-        ).strip(),
-        "qiniu_bucket": str(
-            os.getenv("LGWRAW_QINIU_BUCKET")
-            or os.getenv("QINIU_BUCKET")
-            or source.get("qiniu_bucket")
-            or ""
-        ).strip(),
-        "qiniu_domain": str(
-            os.getenv("LGWRAW_QINIU_DOMAIN")
-            or os.getenv("QINIU_DOMAIN")
-            or source.get("qiniu_domain")
-            or ""
-        ).strip().rstrip("/"),
-        "qiniu_upload_url": str(
-            os.getenv("LGWRAW_QINIU_UPLOAD_URL")
-            or os.getenv("QINIU_UPLOAD_URL")
-            or source.get("qiniu_upload_url")
-            or DEFAULT_IMAGE_STORAGE["qiniu_upload_url"]
-        ).strip().rstrip("/"),
-        "qiniu_prefix": str(
-            os.getenv("LGWRAW_QINIU_TASK_PREFIX")
-            or os.getenv("QINIU_TASK_PREFIX")
-            or source.get("qiniu_prefix")
-            or DEFAULT_IMAGE_STORAGE["qiniu_prefix"]
-        ).strip().strip("/"),
-        "qiniu_region": str(
-            os.getenv("LGWRAW_QINIU_REGION")
-            or os.getenv("QINIU_REGION")
-            or source.get("qiniu_region")
-            or DEFAULT_IMAGE_STORAGE["qiniu_region"]
-        ).strip().lower(),
-        "qiniu_private": _normalize_bool(
-            qiniu_private_env if qiniu_private_env is not None else source.get("qiniu_private"),
-            bool(DEFAULT_IMAGE_STORAGE["qiniu_private"]),
-        ),
         "public_base_url": public_base_url,
     }
 
 
 def _normalize_image_reference_upload_settings(value: object) -> dict[str, object]:
     source = value if isinstance(value, dict) else {}
-    qiniu_access_key_env = os.getenv("LGWRAW_QINIU_ACCESS_KEY") or os.getenv("QINIU_ACCESS_KEY")
-    qiniu_secret_key_env = os.getenv("LGWRAW_QINIU_SECRET_KEY") or os.getenv("QINIU_SECRET_KEY")
-    qiniu_bucket_env = os.getenv("LGWRAW_QINIU_BUCKET") or os.getenv("QINIU_BUCKET")
-    qiniu_domain_env = os.getenv("LGWRAW_QINIU_DOMAIN") or os.getenv("QINIU_DOMAIN")
-    qiniu_upload_url_env = os.getenv("LGWRAW_QINIU_UPLOAD_URL") or os.getenv("QINIU_UPLOAD_URL")
-    qiniu_prefix_env = os.getenv("LGWRAW_QINIU_PREFIX") or os.getenv("QINIU_PREFIX")
-    timeout_sec_env = os.getenv("LGWRAW_QINIU_TIMEOUT_SEC") or os.getenv("QINIU_TIMEOUT_SEC")
-    persistent_cache_env = os.getenv("LGWRAW_QINIU_PERSISTENT_CACHE_ENABLED")
+    enabled_env = os.getenv("LGWRAW_IMAGE_REFERENCE_UPLOAD_ENABLED")
+    timeout_sec_env = os.getenv("LGWRAW_MINIO_TIMEOUT_SEC") or os.getenv("MINIO_TIMEOUT_SEC")
+    persistent_cache_env = os.getenv("LGWRAW_MINIO_PERSISTENT_CACHE_ENABLED")
+    minio_secure_env = os.getenv("LGWRAW_MINIO_SECURE") or os.getenv("MINIO_SECURE")
     timeout_sec = _normalize_positive_int(
         timeout_sec_env or source.get("timeout_sec"),
         int(DEFAULT_IMAGE_REFERENCE_UPLOAD["timeout_sec"]),
         5,
     )
     return {
-        "enabled": _normalize_bool(source.get("enabled"), bool(DEFAULT_IMAGE_REFERENCE_UPLOAD["enabled"])),
-        "provider": "qiniu",
-        "qiniu_access_key": str(qiniu_access_key_env or source.get("qiniu_access_key") or "").strip(),
-        "qiniu_secret_key": str(qiniu_secret_key_env or source.get("qiniu_secret_key") or "").strip(),
-        "qiniu_bucket": str(qiniu_bucket_env or source.get("qiniu_bucket") or "").strip(),
-        "qiniu_domain": str(qiniu_domain_env or source.get("qiniu_domain") or "").strip().rstrip("/"),
-        "qiniu_upload_url": str(
-            qiniu_upload_url_env
-            or source.get("qiniu_upload_url")
-            or DEFAULT_IMAGE_REFERENCE_UPLOAD["qiniu_upload_url"]
+        "enabled": _normalize_bool(
+            enabled_env if enabled_env is not None else source.get("enabled"),
+            bool(DEFAULT_IMAGE_REFERENCE_UPLOAD["enabled"]),
+        ),
+        "provider": "minio",
+        "minio_endpoint": str(
+            os.getenv("LGWRAW_MINIO_ENDPOINT")
+            or os.getenv("MINIO_ENDPOINT")
+            or source.get("minio_endpoint")
+            or ""
         ).strip().rstrip("/"),
-        "qiniu_prefix": str(
-            qiniu_prefix_env
-            or source.get("qiniu_prefix")
-            or DEFAULT_IMAGE_REFERENCE_UPLOAD["qiniu_prefix"]
+        "minio_access_key": str(
+            os.getenv("LGWRAW_MINIO_ACCESS_KEY")
+            or os.getenv("MINIO_ACCESS_KEY")
+            or source.get("minio_access_key")
+            or ""
+        ).strip(),
+        "minio_secret_key": str(
+            os.getenv("LGWRAW_MINIO_SECRET_KEY")
+            or os.getenv("MINIO_SECRET_KEY")
+            or source.get("minio_secret_key")
+            or ""
+        ).strip(),
+        "minio_session_token": str(
+            os.getenv("LGWRAW_MINIO_SESSION_TOKEN")
+            or os.getenv("MINIO_SESSION_TOKEN")
+            or source.get("minio_session_token")
+            or ""
+        ).strip(),
+        "minio_bucket": str(
+            os.getenv("LGWRAW_MINIO_BUCKET")
+            or os.getenv("MINIO_BUCKET")
+            or source.get("minio_bucket")
+            or ""
+        ).strip(),
+        "minio_region": str(
+            os.getenv("LGWRAW_MINIO_REGION")
+            or os.getenv("MINIO_REGION")
+            or source.get("minio_region")
+            or DEFAULT_IMAGE_REFERENCE_UPLOAD["minio_region"]
+        ).strip(),
+        "minio_secure": _normalize_bool(
+            minio_secure_env if minio_secure_env is not None else source.get("minio_secure"),
+            bool(DEFAULT_IMAGE_REFERENCE_UPLOAD["minio_secure"]),
+        ),
+        "minio_root_path": str(
+            os.getenv("LGWRAW_MINIO_REFERENCE_ROOT_PATH")
+            or os.getenv("MINIO_REFERENCE_ROOT_PATH")
+            or os.getenv("LGWRAW_MINIO_ROOT_PATH")
+            or os.getenv("MINIO_ROOT_PATH")
+            or source.get("minio_root_path")
+            or DEFAULT_IMAGE_REFERENCE_UPLOAD["minio_root_path"]
         ).strip().strip("/"),
+        "public_base_url": str(
+            os.getenv("LGWRAW_MINIO_PUBLIC_BASE_URL")
+            or os.getenv("MINIO_PUBLIC_BASE_URL")
+            or os.getenv("LGWRAW_IMAGE_STORAGE_PUBLIC_BASE_URL")
+            or os.getenv("IMAGE_PUBLIC_BASE_URL")
+            or source.get("public_base_url")
+            or ""
+        ).strip().rstrip("/"),
         "timeout_sec": timeout_sec,
         "persistent_cache_enabled": _normalize_bool(
             persistent_cache_env if persistent_cache_env is not None else source.get("persistent_cache_enabled"),
@@ -772,15 +766,6 @@ def _validate_image_storage_settings(settings: dict[str, object]) -> None:
         ]
         if missing:
             raise ValueError(f"MinIO image storage is missing required settings: {', '.join(missing)}")
-        return
-    if provider == "qiniu":
-        missing = [
-            field
-            for field in ("qiniu_access_key", "qiniu_secret_key", "qiniu_bucket", "qiniu_domain", "qiniu_upload_url")
-            if not str(settings.get(field) or "").strip()
-        ]
-        if missing:
-            raise ValueError(f"Qiniu image storage is missing required settings: {', '.join(missing)}")
         return
     if not str(settings.get("webdav_url") or "").strip():
         raise ValueError("启用 WebDAV 图片存储后必须填写 WebDAV URL")
@@ -1102,12 +1087,15 @@ class ConfigStore:
 
     def get_public_image_reference_upload_settings(self) -> dict[str, object]:
         settings = dict(self.get_image_reference_upload_settings())
-        qiniu_access_key = str(settings.get("qiniu_access_key") or "").strip()
-        qiniu_secret_key = str(settings.get("qiniu_secret_key") or "").strip()
-        settings["qiniu_access_key"] = ""
-        settings["qiniu_secret_key"] = ""
-        settings["has_qiniu_access_key"] = bool(qiniu_access_key)
-        settings["has_qiniu_secret_key"] = bool(qiniu_secret_key)
+        minio_access_key = str(settings.get("minio_access_key") or "").strip()
+        minio_secret_key = str(settings.get("minio_secret_key") or "").strip()
+        minio_session_token = str(settings.get("minio_session_token") or "").strip()
+        settings["minio_access_key"] = ""
+        settings["minio_secret_key"] = ""
+        settings["minio_session_token"] = ""
+        settings["has_minio_access_key"] = bool(minio_access_key)
+        settings["has_minio_secret_key"] = bool(minio_secret_key)
+        settings["has_minio_session_token"] = bool(minio_session_token)
         return settings
 
     def get_third_party_apps_settings(self) -> dict[str, object]:
@@ -1201,19 +1189,16 @@ class ConfigStore:
         webdav_password = str(settings.get("webdav_password") or "").strip()
         minio_access_key = str(settings.get("minio_access_key") or "").strip()
         minio_secret_key = str(settings.get("minio_secret_key") or "").strip()
-        qiniu_access_key = str(settings.get("qiniu_access_key") or "").strip()
-        qiniu_secret_key = str(settings.get("qiniu_secret_key") or "").strip()
+        minio_session_token = str(settings.get("minio_session_token") or "").strip()
         settings["webdav_password"] = ""
         settings["minio_access_key"] = ""
         settings["minio_secret_key"] = ""
-        settings["qiniu_access_key"] = ""
-        settings["qiniu_secret_key"] = ""
+        settings["minio_session_token"] = ""
         settings["webdav_url"] = _mask_url_password(str(settings.get("webdav_url") or ""))
         settings["has_webdav_password"] = bool(webdav_password)
         settings["has_minio_access_key"] = bool(minio_access_key)
         settings["has_minio_secret_key"] = bool(minio_secret_key)
-        settings["has_qiniu_access_key"] = bool(qiniu_access_key)
-        settings["has_qiniu_secret_key"] = bool(qiniu_secret_key)
+        settings["has_minio_session_token"] = bool(minio_session_token)
         return settings
 
     def get_storage_backend(self) -> StorageBackend:

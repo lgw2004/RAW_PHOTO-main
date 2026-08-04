@@ -69,7 +69,7 @@ uv run python backend/scripts/migrate_image_task_assets.py --dry-run
 uv run python backend/scripts/migrate_image_task_assets.py
 ```
 
-The dry run only counts legacy assets. The write command stores task inputs and inline Base64 results as object references, then updates task JSON. It does not delete the original local image files. For Qiniu, set `LGWRAW_QINIU_TASK_PREFIX` for task assets and reserve `LGWRAW_QINIU_PREFIX` for public reference-image uploads.
+The dry run only counts legacy assets. The write command stores task inputs and inline Base64 results as MinIO object references, then updates task JSON. It does not delete the original local image files. Configure `MINIO_ROOT_PATH` for task assets and use `MINIO_REFERENCE_ROOT_PATH` for public reference-image uploads when separate prefixes are required.
 
 Capture the current throughput and reliability baseline before changing worker concurrency:
 
@@ -98,7 +98,7 @@ Only Worker processes perform startup recovery and requeue unfinished database t
 
 With `IMAGE_TASK_EXECUTOR=celery`, `worker.py` delegates to a Celery worker with late acknowledgements, one-task prefetch, worker-loss rejection, and Redis visibility recovery. With the default `redis` executor, the existing lightweight worker loop remains available for local development.
 
-For a local enterprise-shaped stack with PostgreSQL, password-protected Redis, and Qiniu object storage:
+For a local enterprise-shaped stack with PostgreSQL, password-protected Redis, and MinIO object storage:
 
 ```bash
 docker compose --env-file .env.local -f docker-compose.enterprise.yml up --build

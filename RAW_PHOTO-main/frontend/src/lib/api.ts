@@ -42,8 +42,8 @@ export type SettingsConfig = {
   image_timeout_retry_secs?: number | string;
   image_storage?: {
     enabled: boolean;
-    mode: "local" | "webdav" | "minio" | "qiniu" | "both";
-    provider?: "webdav" | "minio" | "qiniu";
+    mode: "local" | "webdav" | "minio" | "both";
+    provider?: "webdav" | "minio";
     public_base_url: string;
     webdav_url?: string;
     webdav_username?: string;
@@ -52,6 +52,7 @@ export type SettingsConfig = {
     minio_endpoint?: string;
     minio_access_key?: string;
     minio_secret_key?: string;
+    minio_session_token?: string;
     minio_bucket?: string;
     minio_region?: string;
     minio_secure?: boolean;
@@ -60,7 +61,7 @@ export type SettingsConfig = {
   };
   image_reference_upload?: {
     enabled?: boolean;
-    provider?: "qiniu";
+    provider?: "minio";
     [key: string]: unknown;
   };
   [key: string]: unknown;

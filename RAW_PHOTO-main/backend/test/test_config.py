@@ -59,49 +59,51 @@ class ConfigLoadingTests(unittest.TestCase):
                 else:
                     module.os.environ["LGWRAW_AUTH_KEY"] = old_env_auth_key
 
-    def test_qiniu_prefixes_are_separate_for_tasks_and_references(self) -> None:
+    def test_minio_uses_standard_environment_names_and_session_token(self) -> None:
         module = self.config_module
         with mock.patch.dict(
             module.os.environ,
             {
-                "LGWRAW_QINIU_PREFIX": "lgwraw/reference",
-                "LGWRAW_QINIU_TASK_PREFIX": "lgwraw/task-assets",
+                "LGWRAW_IMAGE_STORAGE_ENABLED": "true",
+                "LGWRAW_IMAGE_STORAGE_MODE": "minio",
+                "MINIO_ENDPOINT": "http://minio.example.test:9000",
+                "MINIO_ACCESS_KEY": "access",
+                "MINIO_SECRET_KEY": "secret",
+                "MINIO_SESSION_TOKEN": "session",
+                "MINIO_BUCKET": "raw-photo",
+                "MINIO_SECURE": "false",
+                "MINIO_REGION": "cn-beijing",
             },
-            clear=False,
+            clear=True,
         ):
             storage = module._normalize_image_storage_settings({})
-            reference = module._normalize_image_reference_upload_settings({})
 
-        self.assertEqual(storage["qiniu_prefix"], "lgwraw/task-assets")
-        self.assertEqual(reference["qiniu_prefix"], "lgwraw/reference")
+        self.assertEqual(storage["provider"], "minio")
+        self.assertEqual(storage["minio_endpoint"], "http://minio.example.test:9000")
+        self.assertEqual(storage["minio_session_token"], "session")
+        self.assertFalse(storage["minio_secure"])
 
-    def test_reference_upload_normalizes_legacy_provider_config_to_qiniu_only(self) -> None:
+    def test_reference_upload_uses_minio_configuration(self) -> None:
         module = self.config_module
-        legacy = {
+        reference_config = {
             "enabled": True,
-            "provider": "legacy-provider",
-            "legacy_upload_url": "https://upload.example.test",
-            "legacy_token": "legacy-token",
-            "qiniu_access_key": "ak",
-            "qiniu_secret_key": "sk",
-            "qiniu_bucket": "bucket",
-            "qiniu_domain": "https://cdn.example.test",
-            "categories": "legacy",
-            "compress": "1",
-            "webp": "1",
+            "provider": "minio",
+            "minio_endpoint": "http://minio.example.test:9000",
+            "minio_access_key": "ak",
+            "minio_secret_key": "sk",
+            "minio_session_token": "session",
+            "minio_bucket": "bucket",
+            "minio_root_path": "reference",
         }
 
         with mock.patch.dict(module.os.environ, {}, clear=True):
-            reference = module._normalize_image_reference_upload_settings(legacy)
+            reference = module._normalize_image_reference_upload_settings(reference_config)
 
-        self.assertEqual(reference["provider"], "qiniu")
-        self.assertEqual(reference["qiniu_access_key"], "ak")
-        self.assertEqual(reference["qiniu_secret_key"], "sk")
-        self.assertNotIn("legacy_token", reference)
-        self.assertNotIn("legacy_upload_url", reference)
-        self.assertNotIn("categories", reference)
-        self.assertNotIn("compress", reference)
-        self.assertNotIn("webp", reference)
+        self.assertEqual(reference["provider"], "minio")
+        self.assertEqual(reference["minio_access_key"], "ak")
+        self.assertEqual(reference["minio_secret_key"], "sk")
+        self.assertEqual(reference["minio_session_token"], "session")
+        self.assertEqual(reference["minio_root_path"], "reference")
 
     def test_openai_relay_accepts_environment_api_key_pool(self) -> None:
         module = self.config_module

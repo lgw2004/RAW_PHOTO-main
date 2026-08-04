@@ -22,8 +22,9 @@ class SecurityConfigTests(unittest.TestCase):
                         "passphrase": "legacy-passphrase",
                     },
                     "image_reference_upload": {
-                        "qiniu_access_key": "legacy-qiniu-access",
-                        "qiniu_secret_key": "legacy-qiniu-secret",
+                        "minio_access_key": "legacy-minio-access",
+                        "minio_secret_key": "legacy-minio-secret",
+                        "minio_session_token": "legacy-minio-session",
                     },
                     "image_storage": {
                         "enabled": True,
@@ -63,8 +64,9 @@ class SecurityConfigTests(unittest.TestCase):
             self.assertEqual(public["backup"]["secret_access_key"], "")
             self.assertEqual(public["backup"]["passphrase"], "")
             self.assertTrue(public["backup"]["has_secret_access_key"])
-            self.assertEqual(public["image_reference_upload"]["qiniu_access_key"], "")
-            self.assertEqual(public["image_reference_upload"]["qiniu_secret_key"], "")
+            self.assertEqual(public["image_reference_upload"]["minio_access_key"], "")
+            self.assertEqual(public["image_reference_upload"]["minio_secret_key"], "")
+            self.assertEqual(public["image_reference_upload"]["minio_session_token"], "")
             self.assertEqual(public["image_storage"]["webdav_password"], "")
             self.assertNotIn("password", public["image_storage"]["webdav_url"])
             self.assertEqual(public["openai_relay"]["api_key"], "")

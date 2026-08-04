@@ -18,11 +18,6 @@ frontend/node_modules/
 frontend/dist/
 frontend/.vite/
 
-legacy/react-web/node_modules/
-legacy/react-web/.next/
-legacy/react-web/out/
-legacy/react-web/tsconfig.tsbuildinfo
-legacy/react-web-dist/
 
 data/
 

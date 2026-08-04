@@ -16,7 +16,7 @@ if (-not (Test-Path -LiteralPath $ComposeFile)) {
 
 if (-not (Test-Path -LiteralPath $ResolvedEnvFile)) {
     Write-Host "Env file not found: $ResolvedEnvFile"
-    Write-Host "Create it from .env.example, fill passwords/Qiniu/relay settings, then run this script again."
+    Write-Host "Create it from .env.example, fill passwords/MinIO/relay settings, then run this script again."
     exit 1
 }
 

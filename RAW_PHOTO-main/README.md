@@ -10,7 +10,7 @@ RAW_PHOTO 是一个面向电商场景的 AI 生图工作台，主要用于主图
 - 任务队列：生成任务进入队列，由 worker 消费，避免多人同时使用时互相拖垮服务。
 - 并发控制：支持全局并发、单用户并发、单用户排队上限和 API Key 池。
 - API Key 池：可配置多个 OpenAI-compatible 中转站 Key，按池化方式分配生成任务。
-- 图片资产：支持本地保存，也支持对象存储，例如七牛云、MinIO/S3 兼容存储、阿里云 OSS S3 兼容模式。
+- 图片资产：支持本地保存，也支持 WebDAV、MinIO/S3 兼容存储和阿里云 OSS S3 兼容模式。
 - 监控与压测：内置任务队列压测脚本、监控接口和运行状态页面。
 - 内网部署：支持本地局域网运行，也支持 Docker Compose 部署到服务器。
 
@@ -23,7 +23,7 @@ RAW_PHOTO 是一个面向电商场景的 AI 生图工作台，主要用于主图
 | 队列 | Redis、Celery 或轻量 Redis worker |
 | 数据库 | PostgreSQL |
 | 图片处理 | Pillow |
-| 对象存储 | 本地、七牛云、WebDAV、MinIO/S3 兼容存储 |
+| 对象存储 | 本地、WebDAV、MinIO/S3 兼容存储 |
 | 部署 | Docker、Docker Compose |
 | 测试 | unittest、k6、本地 mock 压测脚本 |
 
@@ -195,7 +195,7 @@ LGWRAW_OPENAI_RELAY_BASE_URL
 LGWRAW_OPENAI_RELAY_API_KEY
 ```
 
-如果使用七牛云或阿里云 OSS，还需要配置对应对象存储参数。
+如果使用 MinIO 或阿里云 OSS，还需要配置对应对象存储参数。
 
 ### 3. 启动企业版内网栈
 
@@ -278,13 +278,14 @@ LGWRAW_IMAGE_STORAGE_ENABLED=true
 LGWRAW_IMAGE_STORAGE_MODE=both
 LGWRAW_IMAGE_STORAGE_PROVIDER=minio
 LGWRAW_IMAGE_STORAGE_PUBLIC_BASE_URL=https://your-bucket-public-domain/path
-LGWRAW_MINIO_ENDPOINT=https://oss-cn-beijing.aliyuncs.com
-LGWRAW_MINIO_ACCESS_KEY=replace-with-access-key
-LGWRAW_MINIO_SECRET_KEY=replace-with-secret-key
-LGWRAW_MINIO_BUCKET=replace-with-bucket
-LGWRAW_MINIO_REGION=cn-beijing
-LGWRAW_MINIO_ROOT_PATH=raw-photo/images
-LGWRAW_MINIO_SECURE=true
+MINIO_ENDPOINT=https://oss-cn-beijing.aliyuncs.com
+MINIO_ACCESS_KEY=replace-with-access-key
+MINIO_SECRET_KEY=replace-with-secret-key
+MINIO_SESSION_TOKEN=
+MINIO_BUCKET=replace-with-bucket
+MINIO_REGION=cn-beijing
+MINIO_ROOT_PATH=raw-photo/images
+MINIO_SECURE=true
 ```
 
 阿里云 OSS 可通过 S3 兼容方式接入，项目里使用 `minio` provider 对接即可。
@@ -383,7 +384,7 @@ scripts/k6-image-workspace.js
 ## 安全注意事项
 
 - 不要提交 `.env.local`、`.env`、`config.json`、`data/`。
-- 不要把 API Key、阿里云 AccessKey、七牛云密钥、数据库密码写进 README。
+- 不要把 API Key、对象存储密钥、数据库密码写进 README。
 - GitHub 公开仓库中只保留 `.env.example` 和 `config.example.json` 这种占位示例。
 - 已经泄露过的 Key 建议轮换。
 - 生产环境建议使用 RAM 子账号，并按最小权限授权对象存储。

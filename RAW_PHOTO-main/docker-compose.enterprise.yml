@@ -84,7 +84,7 @@ services:
       schema-init:
         condition: service_completed_successfully
     ports:
-      - "127.0.0.1:8000:80"
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-18000}:80"
     environment: *app-environment
     volumes:
       - ./data:/app/data

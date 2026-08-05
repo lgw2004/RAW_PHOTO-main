@@ -13,7 +13,7 @@ from services.config import config
 from services.openai_relay_pool import RelaySubmittedHTTPException, current_relay_account, run_with_relay_pool
 from services.proxy_service import proxy_settings
 from services import reference_image_uploader
-
+# 生图函数入口
 
 STREAM_TIMEOUT_SECONDS = 300
 REQUEST_TIMEOUT_SECONDS = 300

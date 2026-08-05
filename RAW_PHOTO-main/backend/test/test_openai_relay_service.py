@@ -101,6 +101,38 @@ class OpenAIRelayServiceTests(unittest.TestCase):
         self.assertEqual(get.call_args_list[0].kwargs["headers"]["Authorization"], "Bearer first-key")
         self.assertEqual(get.call_args_list[1].kwargs["headers"]["Authorization"], "Bearer second-key")
 
+    def test_list_models_uses_multiple_relay_endpoints(self):
+        def pool_settings() -> dict[str, object]:
+            return {
+                "enabled": True,
+                "base_url": "",
+                "api_key": "",
+                "accounts": [
+                    {"name": "relay-a", "base_url": "https://a.example/v1", "api_key": "key-a"},
+                    {"name": "relay-b", "base_url": "https://b.example/v1", "api_key": "key-b"},
+                ],
+                "api_key_pool_max_attempts": 2,
+                "api_key_pool_acquire_timeout_secs": 1,
+                "api_key_pool_lease_secs": 60,
+            }
+
+        with (
+            mock.patch.object(openai_relay_service, "settings", side_effect=pool_settings),
+            mock.patch.object(
+                openai_relay_service.requests,
+                "get",
+                side_effect=[
+                    FakeResponse(status_code=429, payload={"error": {"message": "rate limit"}}),
+                    FakeResponse(payload={"object": "list", "data": []}),
+                ],
+            ) as get,
+        ):
+            result = openai_relay_service.list_models()
+
+        self.assertEqual(result, {"object": "list", "data": []})
+        self.assertEqual(get.call_args_list[0].args[0], "https://a.example/v1/models")
+        self.assertEqual(get.call_args_list[1].args[0], "https://b.example/v1/models")
+
     def test_image_edits_posts_multipart(self):
         FakeCurlMime.instances = []
         with (

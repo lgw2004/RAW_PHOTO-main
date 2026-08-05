@@ -46,7 +46,14 @@ def _relay_configured() -> bool:
     api_key = str(relay.get("api_key") or "").strip()
     api_keys = relay.get("api_keys")
     has_api_keys = bool(api_keys) if isinstance(api_keys, list) else bool(str(api_keys or "").strip())
-    return bool(relay.get("enabled") and relay.get("base_url") and (api_key or has_api_keys))
+    accounts = relay.get("accounts")
+    has_accounts = isinstance(accounts, list) and any(
+        isinstance(item, dict)
+        and str(item.get("base_url") or "").strip()
+        and str(item.get("api_key") or item.get("key") or "").strip()
+        for item in accounts
+    )
+    return bool(relay.get("enabled") and relay.get("base_url") and (api_key or has_api_keys or has_accounts))
 
 
 def _role_label(role: object) -> str:

@@ -122,6 +122,27 @@ class ConfigLoadingTests(unittest.TestCase):
         self.assertEqual(settings["api_keys"], ["pool-a", "pool-b"])
         self.assertTrue(settings["api_key_pool_distributed"])
 
+    def test_openai_relay_accepts_environment_relay_accounts(self) -> None:
+        module = self.config_module
+        with mock.patch.dict(
+            module.os.environ,
+            {
+                "LGWRAW_OPENAI_RELAY_ACCOUNTS": (
+                    '[{"name":"relay-a","base_url":"https://a.example/v1",'
+                    '"api_key":"key-a","max_concurrency":2},'
+                    '{"name":"relay-b","base_url":"https://b.example/v1",'
+                    '"api_key":"key-b"}]'
+                ),
+            },
+            clear=False,
+        ):
+            settings = module._normalize_openai_relay_settings({})
+
+        self.assertEqual(settings["base_url"], "https://a.example/v1")
+        self.assertEqual(settings["accounts"][0]["base_url"], "https://a.example/v1")
+        self.assertEqual(settings["accounts"][0]["max_concurrency"], 2)
+        self.assertEqual(settings["accounts"][1]["api_key"], "key-b")
+
 
 if __name__ == "__main__":
     unittest.main()

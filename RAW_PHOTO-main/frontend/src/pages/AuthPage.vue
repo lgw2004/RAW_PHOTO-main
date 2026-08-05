@@ -131,7 +131,7 @@ onMounted(() => {
 <template>
   <section class="auth-shell">
     <div class="auth-brand">
-      <img src="/jiakemei-mark.svg" alt="" class="auth-brand__mark" />
+      <img src="/image.png" alt="" class="auth-brand__mark" />
       <div>
         <div class="auth-brand__name">AI Image Studio</div>
         <div class="auth-brand__meta">AI Creative Workspace</div>

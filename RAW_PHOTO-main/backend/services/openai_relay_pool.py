@@ -91,14 +91,15 @@ def _normalize_api_keys(relay_settings: Mapping[str, object]) -> list[RelayAccou
         1,
     )
     normalized: list[RelayAccount] = []
-    seen: set[str] = set()
+    seen: set[tuple[str, str]] = set()
 
     def add(api_key: object, name: object = "", base_url_override: object = "", max_concurrency: object = None) -> None:
         key = _clean(api_key)
-        if not key or key in seen:
-            return
-        seen.add(key)
         account_base_url = _clean(base_url_override, base_url).rstrip("/") or base_url
+        fingerprint = (account_base_url, key)
+        if not key or fingerprint in seen:
+            return
+        seen.add(fingerprint)
         account_id = hashlib.sha256(f"{account_base_url}|{key}".encode("utf-8")).hexdigest()[:16]
         normalized.append(
             RelayAccount(
@@ -128,6 +129,16 @@ def _normalize_api_keys(relay_settings: Mapping[str, object]) -> list[RelayAccou
                 )
             else:
                 add(item, name=f"relay-{index}")
+    raw_accounts = relay_settings.get("accounts")
+    if isinstance(raw_accounts, (list, tuple, set)):
+        for index, item in enumerate(raw_accounts, start=1):
+            if isinstance(item, dict):
+                add(
+                    item.get("api_key") or item.get("key") or item.get("value"),
+                    name=item.get("name") or f"relay-account-{index}",
+                    base_url_override=item.get("base_url") or base_url,
+                    max_concurrency=item.get("max_concurrency"),
+                )
     return normalized
 
 
@@ -388,7 +399,7 @@ def acquire_relay_lease(relay_settings: Mapping[str, object], *, excluded_accoun
 
 
 def run_with_relay_pool(relay_settings: Mapping[str, object], operation: str, action: Callable[[], Any]) -> Any:
-    if not _bool(relay_settings.get("enabled"), False) or not _clean(relay_settings.get("base_url")):
+    if not _bool(relay_settings.get("enabled"), False):
         return action()
     accounts = _normalize_api_keys(relay_settings)
     if not accounts:

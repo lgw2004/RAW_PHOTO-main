@@ -93,6 +93,8 @@ LGWRAW_AUTH_KEY=replace-with-a-long-random-value
 LGWRAW_OPENAI_RELAY_ENABLED=true
 LGWRAW_OPENAI_RELAY_BASE_URL=https://your-relay.example.com/v1
 LGWRAW_OPENAI_RELAY_API_KEY=replace-with-relay-api-key
+# Optional JSON list for multiple relay endpoints (keep real keys in .env.local)
+# LGWRAW_OPENAI_RELAY_ACCOUNTS=[{"name":"relay-a","base_url":"https://relay-a.example.com/v1","api_key":"replace-key-a","max_concurrency":2},{"name":"relay-b","base_url":"https://relay-b.example.com/v1","api_key":"replace-key-b","max_concurrency":2}]
 STORAGE_BACKEND=postgres
 DATABASE_URL=postgresql+asyncpg://dev_sh_ai:replace-with-a-strong-password@127.0.0.1:5432/dev_sh_ai_db
 IMAGE_TASK_QUEUE_ENABLED=true
@@ -233,7 +235,7 @@ LGWRAW_OPENAI_RELAY_BASE_URL=https://your-relay.example.com/v1
 LGWRAW_OPENAI_RELAY_API_KEY=replace-with-relay-api-key
 ```
 
-如果使用多个 Key，建议把 Key 池放到环境变量或未提交的 `config.json` 中。配置多个 Key 后，系统可以在并发任务中分配空闲 Key，减少多人使用时的排队时间。
+如果使用同一个中转站的多个 Key，可以继续使用 `LGWRAW_OPENAI_RELAY_API_KEYS=key-a,key-b`。如果是多个不同中转站，使用 `LGWRAW_OPENAI_RELAY_ACCOUNTS` 的 JSON 数组，每个对象填写 `base_url`、`api_key` 和可选的 `max_concurrency`。配置池后，系统会在并发任务中分配空闲账号，并在限流时切换账号。
 
 ### 队列和并发
 

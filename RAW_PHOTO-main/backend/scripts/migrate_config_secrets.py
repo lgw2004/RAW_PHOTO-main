@@ -27,6 +27,7 @@ SECRET_MAPPINGS: tuple[tuple[tuple[str, ...], str], ...] = (
     (("image_storage", "minio_session_token"), "MINIO_SESSION_TOKEN"),
     (("openai_relay", "api_key"), "LGWRAW_OPENAI_RELAY_API_KEY"),
     (("openai_relay", "api_keys"), "LGWRAW_OPENAI_RELAY_API_KEYS"),
+    (("openai_relay", "accounts"), "LGWRAW_OPENAI_RELAY_ACCOUNTS"),
     (("proxy_runtime", "clearance", "cf_cookies"), "LGWRAW_CF_COOKIES"),
     (("proxy_runtime", "clearance", "cf_clearance"), "LGWRAW_CF_CLEARANCE"),
 )

@@ -106,6 +106,7 @@
     "base_url": "",
     "api_key": "",
     "api_keys": [],
+    "accounts": [],
     "api_key_concurrency": 1,
     "api_key_pool_distributed": false,
     "api_key_pool_acquire_timeout_secs": 5,

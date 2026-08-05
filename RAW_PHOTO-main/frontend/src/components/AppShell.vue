@@ -115,7 +115,7 @@ onBeforeUnmount(() => window.clearInterval(taskTimer));
           </button>
           <RouterLink to="/image" class="group flex min-w-0 items-center gap-3 rounded-2xl pr-2 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-[#4F7CFF]/20" aria-label="AI Image Studio">
             <span class="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-slate-950 text-white shadow-[0_16px_36px_rgba(17,24,39,0.18)] dark:bg-white dark:text-slate-950">
-              <img src="/jiakemei-mark.svg" alt="" class="size-8 rounded-xl" />
+              <img src="/image.png" alt="" class="size-8 rounded-xl" />
             </span>
             <span class="hidden min-w-0 flex-col leading-none sm:flex">
               <span class="truncate text-[16px] font-semibold text-slate-950 dark:text-stone-50">AI Image Studio</span>

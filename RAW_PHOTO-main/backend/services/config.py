@@ -108,6 +108,7 @@ DEFAULT_OPENAI_RELAY = {
     "base_url": "",
     "api_key": "",
     "api_keys": [],
+    "accounts": [],
     "api_key_concurrency": 1,
     "api_key_pool_distributed": False,
     "api_key_pool_acquire_timeout_secs": 5,
@@ -173,6 +174,34 @@ def _normalize_string_list(value: object) -> list[str]:
     return normalized
 
 
+def _normalize_relay_accounts(value: object) -> list[dict[str, object]]:
+    raw_value = value
+    if isinstance(raw_value, str):
+        try:
+            raw_value = json.loads(raw_value)
+        except json.JSONDecodeError:
+            return []
+    if not isinstance(raw_value, (list, tuple)):
+        return []
+    normalized: list[dict[str, object]] = []
+    for index, item in enumerate(raw_value, start=1):
+        if not isinstance(item, dict):
+            continue
+        api_key = str(item.get("api_key") or item.get("key") or "").strip()
+        base_url = str(item.get("base_url") or "").strip().rstrip("/")
+        if not api_key or not base_url:
+            continue
+        account: dict[str, object] = {
+            "name": str(item.get("name") or f"relay-{index}").strip(),
+            "base_url": base_url,
+            "api_key": api_key,
+        }
+        if item.get("max_concurrency") is not None:
+            account["max_concurrency"] = _normalize_positive_int(item.get("max_concurrency"), 1, 1)
+        normalized.append(account)
+    return normalized
+
+
 def _clear_nested_value(data: dict[str, object], path: tuple[str, ...], replacement: object = "") -> None:
     current: dict[str, object] = data
     for part in path[:-1]:
@@ -199,6 +228,7 @@ def _strip_environment_managed_secrets(data: dict[str, object]) -> dict[str, obj
         (("LGWRAW_MINIO_SESSION_TOKEN", "MINIO_SESSION_TOKEN"), ("image_reference_upload", "minio_session_token"), ""),
         (("LGWRAW_OPENAI_RELAY_API_KEY",), ("openai_relay", "api_key"), ""),
         (("LGWRAW_OPENAI_RELAY_API_KEYS",), ("openai_relay", "api_keys"), []),
+        (("LGWRAW_OPENAI_RELAY_ACCOUNTS",), ("openai_relay", "accounts"), []),
         (("LGWRAW_CF_COOKIES",), ("proxy_runtime", "clearance", "cf_cookies"), ""),
         (("LGWRAW_CF_CLEARANCE",), ("proxy_runtime", "clearance", "cf_clearance"), ""),
         (("IMAGE_TASK_REDIS_URL", "REDIS_URL"), ("image_task_queue", "redis_url"), DEFAULT_IMAGE_TASK_QUEUE["redis_url"]),
@@ -607,6 +637,7 @@ def _normalize_openai_relay_settings(value: object) -> dict[str, object]:
     base_url_env = os.getenv("LGWRAW_OPENAI_RELAY_BASE_URL")
     api_key_env = os.getenv("LGWRAW_OPENAI_RELAY_API_KEY")
     api_keys_env = os.getenv("LGWRAW_OPENAI_RELAY_API_KEYS")
+    accounts_env = os.getenv("LGWRAW_OPENAI_RELAY_ACCOUNTS")
     api_key_concurrency_env = os.getenv("LGWRAW_OPENAI_RELAY_API_KEY_CONCURRENCY")
     pool_distributed_env = os.getenv("LGWRAW_OPENAI_RELAY_POOL_DISTRIBUTED")
     pool_acquire_timeout_env = os.getenv("LGWRAW_OPENAI_RELAY_POOL_ACQUIRE_TIMEOUT_SECS")
@@ -614,16 +645,23 @@ def _normalize_openai_relay_settings(value: object) -> dict[str, object]:
     pool_cooldown_env = os.getenv("LGWRAW_OPENAI_RELAY_POOL_COOLDOWN_SECS")
     pool_max_attempts_env = os.getenv("LGWRAW_OPENAI_RELAY_POOL_MAX_ATTEMPTS")
     prompt_analysis_model_env = os.getenv("LGWRAW_PROMPT_ANALYSIS_MODEL")
+    accounts = _normalize_relay_accounts(
+        accounts_env if accounts_env is not None else source.get("accounts")
+    )
+    base_url = str(base_url_env or source.get("base_url") or "").strip().rstrip("/")
+    if not base_url and accounts:
+        base_url = str(accounts[0]["base_url"])
     return {
         "enabled": _normalize_bool(
             enabled_env if enabled_env is not None else source.get("enabled"),
             bool(DEFAULT_OPENAI_RELAY["enabled"]),
         ),
-        "base_url": str(base_url_env or source.get("base_url") or "").strip().rstrip("/"),
+        "base_url": base_url,
         "api_key": str(api_key_env or source.get("api_key") or "").strip(),
         "api_keys": _normalize_string_list(
             api_keys_env if api_keys_env is not None else source.get("api_keys")
         ),
+        "accounts": accounts,
         "api_key_concurrency": _normalize_positive_int(
             api_key_concurrency_env if api_key_concurrency_env is not None else source.get("api_key_concurrency"),
             int(DEFAULT_OPENAI_RELAY["api_key_concurrency"]),
@@ -1108,9 +1146,16 @@ class ConfigStore:
         settings = dict(self.get_openai_relay_settings())
         api_key = str(settings.get("api_key") or "").strip()
         api_keys = _normalize_string_list(settings.get("api_keys"))
+        accounts = _normalize_relay_accounts(settings.get("accounts"))
         settings["api_key"] = ""
         settings["api_keys"] = []
-        configured_keys = {key for key in [api_key, *api_keys] if key}
+        settings["accounts"] = []
+        configured_keys = {(str(settings.get("base_url") or ""), key) for key in [api_key, *api_keys] if key}
+        configured_keys.update(
+            (str(account.get("base_url") or ""), str(account.get("api_key") or ""))
+            for account in accounts
+            if account.get("api_key")
+        )
         settings["has_api_key"] = bool(configured_keys)
         settings["api_key_count"] = len(configured_keys)
         return settings

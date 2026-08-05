@@ -19,6 +19,7 @@ SECRET_PATHS: tuple[tuple[str, ...], ...] = (
     ("image_storage", "minio_session_token"),
     ("openai_relay", "api_key"),
     ("openai_relay", "api_keys"),
+    ("openai_relay", "accounts"),
     ("proxy_runtime", "clearance", "cf_cookies"),
     ("proxy_runtime", "clearance", "cf_clearance"),
 )

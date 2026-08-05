@@ -47,7 +47,16 @@ def _relay_has_api_key(relay: dict[str, object]) -> bool:
     if isinstance(api_keys, str):
         return bool(api_keys.strip())
     if isinstance(api_keys, (list, tuple, set)):
-        return any(str(item or "").strip() for item in api_keys)
+        if any(str(item or "").strip() for item in api_keys):
+            return True
+    accounts = relay.get("accounts")
+    if isinstance(accounts, (list, tuple, set)):
+        return any(
+            isinstance(item, dict)
+            and str(item.get("api_key") or item.get("key") or "").strip()
+            and str(item.get("base_url") or "").strip()
+            for item in accounts
+        )
     return False
 
 
@@ -64,7 +73,11 @@ def _active_relay_settings() -> dict[str, object]:
 
 def is_enabled() -> bool:
     relay = settings()
-    return bool(relay.get("enabled") and relay.get("base_url") and _relay_has_api_key(relay))
+    has_account_base_url = any(
+        isinstance(item, dict) and str(item.get("base_url") or "").strip()
+        for item in (relay.get("accounts") or [])
+    )
+    return bool(relay.get("enabled") and (relay.get("base_url") or has_account_base_url) and _relay_has_api_key(relay))
 
 
 def _url(path: str) -> str:

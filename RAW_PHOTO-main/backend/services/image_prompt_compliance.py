@@ -9,8 +9,8 @@ HIGH_RISK_CLAIM_REPLACEMENTS: tuple[tuple[re.Pattern[str], str], ...] = (
 )
 
 IMAGE_PROMPT_COMPLIANCE_GUARD = (
-    "合规约束：画面文字只保留中性产品信息；不要生成医疗、消杀、抗微生物、"
-    "病毒相关或等级背书类功效宣称，不要新增功效徽章、百分比承诺或认证标识。"
+    "合规约束：画面文字只保留中性产品信息；"
+    "不要新增功效徽章、百分比承诺或认证标识。"
 )
 IMAGE_LAYOUT_GUARD_PREFIX = "画面结构约束："
 IMAGE_SINGLE_LAYOUT_GUARD = (

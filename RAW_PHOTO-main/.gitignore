@@ -33,3 +33,5 @@ backend/=
 .vscode/
 .DS_Store
 Thumbs.db
+.github
+
